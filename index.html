@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liegendtransport Rechner</title>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .info {
+            font-size: 0.9em;
+            color: #555;
+            margin: 20px 0;
+        }
+        label {
+            font-weight: bold;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .checkbox-group {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #0078d7;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #005a9e;
+        }
+        #results {
+            margin-top: 20px;
+            text-align: center;
+        }
+        #map {
+            height: 400px;
+            margin-top: 20px;
+            border-radius: 8px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 0.8em;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Liegendtransport Rechner</h1>
+        <div class="info">
+            <p>Bereitgestellt von Taxi Pfeiffer Blankenburg</p>
+        </div>
+        <div class="form-group">
+            <label for="start">Startadresse:</label>
+            <input type="text" id="start" placeholder="Startadresse eingeben" required>
+        </div>
+        <div class="form-group">
+            <label for="ziel">Zieladresse:</label>
+            <input type="text" id="ziel" placeholder="Zieladresse eingeben" required>
+        </div>
+        <div class="checkbox-group">
+            <label><input type="checkbox" id="gepaeckKlein"> Gepäck klein (15,00 €)</label>
+            <label><input type="checkbox" id="gepaeckGross"> Gepäck groß (30,00 €)</label>
+        </div>
+        <button onclick="calculatePrice()">Preis berechnen</button>
+        <div id="results"></div>
+        <div id="map"></div>
+        <div class="footer">
+            &copy; Taxi Pfeiffer, Blankenburg 2024
+        </div>
+    </div>
+
+    <script>
+        const apiKey = "A2lRfHWgDIYXh9QObZJTvb17TdUG3CNn";
+        const betriebshof = "Westerhäuser Landstraße 17, 38889 Blankenburg";
+        const anfahrtskosten = 2.00; // Anfahrtskosten pro Kilometer
+        const kmPreis = 5.00; // Kilometerpreis für Liegendtransporte
+        const gepaeckKleinPreis = 15.00;
+        const gepaeckGrossPreis = 30.00;
+
+        const map = L.map('map').setView([51.833, 10.790], 12);
+        L.tileLayer(`https://api.tomtom.com/map/1/tile/basic/main/{z}/{x}/{y}.png?key=${apiKey}`, {
+            attribution: '© TomTom'
+        }).addTo(map);
+
+        async function calculatePrice() {
+            const start = document.getElementById('start').value;
+            const ziel = document.getElementById('ziel').value;
+            const gepaeckKlein = document.getElementById('gepaeckKlein').checked;
+            const gepaeckGross = document.getElementById('gepaeckGross').checked;
+
+            if (!start || !ziel) {
+                alert("Bitte geben Sie Start- und Zieladresse ein!");
+                return;
+            }
+
+            try {
+                // Startpunkt Geocoding
+                const startResponse = await fetch(`https://api.tomtom.com/search/2/geocode/${encodeURIComponent(start)}.json?key=${apiKey}`);
+                const startData = await startResponse.json();
+                if (!startData.results.length) throw new Error("Startadresse nicht gefunden!");
+
+                const startCoords = startData.results[0].position;
+
+                // Zielpunkt Geocoding
+                const zielResponse = await fetch(`https://api.tomtom.com/search/2/geocode/${encodeURIComponent(ziel)}.json?key=${apiKey}`);
+                const zielData = await zielResponse.json();
+                if (!zielData.results.length) throw new Error("Zieladresse nicht gefunden!");
+
+                const zielCoords = zielData.results[0].position;
+
+                // Betriebshof Geocoding
+                const betriebshofResponse = await fetch(`https://api.tomtom.com/search/2/geocode/${encodeURIComponent(betriebshof)}.json?key=${apiKey}`);
+                const betriebshofData = await betriebshofResponse.json();
+                if (!betriebshofData.results.length) throw new Error("Betriebshof-Adresse nicht gefunden!");
+
+                const betriebshofCoords = betriebshofData.results[0].position;
+
+                // Route Betriebshof -> Start
+                const anfahrtResponse = await fetch(`https://api.tomtom.com/routing/1/calculateRoute/${betriebshofCoords.lat},${betriebshofCoords.lon}:${startCoords.lat},${startCoords.lon}/json?key=${apiKey}`);
+                const anfahrtData = await anfahrtResponse.json();
+                const anfahrtKm = anfahrtData.routes[0].summary.lengthInMeters / 1000;
+
+                // Route Start -> Ziel
+                const streckeResponse = await fetch(`https://api.tomtom.com/routing/1/calculateRoute/${startCoords.lat},${startCoords.lon}:${zielCoords.lat},${zielCoords.lon}/json?key=${apiKey}`);
+                const streckeData = await streckeResponse.json();
+                const streckeKm = streckeData.routes[0].summary.lengthInMeters / 1000;
+
+                // Preisberechnung
+                let total = anfahrtKm * anfahrtskosten + streckeKm * kmPreis;
+                if (gepaeckKlein) total += gepaeckKleinPreis;
+                if (gepaeckGross) total += gepaeckGrossPreis;
+
+                // Ergebnisse anzeigen
+                document.getElementById('results').innerHTML = `
+                    <h3>Berechnungsergebnisse</h3>
+                    <p><b>Entfernung (Start -> Ziel):</b> ${streckeKm.toFixed(2)} km</p>
+                    <p><b>Anfahrtskosten:</b> ${anfahrtKm.toFixed(2)} km × 2,00 € = ${(anfahrtKm * anfahrtskosten).toFixed(2)} €</p>
+                    <p><b>Transportkosten:</b> ${streckeKm.toFixed(2)} km × 5,00 € = ${(streckeKm * kmPreis).toFixed(2)} €</p>
+                    ${gepaeckKlein ? `<p><b>Gepäck klein:</b> 15,00 €</p>` : ""}
+                    ${gepaeckGross ? `<p><b>Gepäck groß:</b> 30,00 €</p>` : ""}
+                    <p><b>Gesamtpreis:</b> ${total.toFixed(2)} €</p>
+                `;
+
+                // Route anzeigen
+                const points = streckeData.routes[0].legs[0].points.map(p => [p.latitude, p.longitude]);
+                L.polyline(points, { color: 'blue' }).addTo(map);
+                map.fitBounds(points);
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+    </script>
+</body>
+</html>
