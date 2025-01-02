@@ -36,7 +36,7 @@
         .form-group {
             margin-bottom: 15px;
         }
-        input[type="text"] {
+        input[type="text"], input[type="number"] {
             width: 100%;
             padding: 8px;
             border: 1px solid #ccc;
@@ -90,9 +90,17 @@
             <label for="ziel">Zieladresse:</label>
             <input type="text" id="ziel" placeholder="Zieladresse eingeben" required>
         </div>
+        <div class="form-group">
+            <label for="treppen">Treppen (10,00 € pro Treppe):</label>
+            <input type="number" id="treppen" min="0" placeholder="Anzahl der Treppen">
+        </div>
         <div class="checkbox-group">
             <label><input type="checkbox" id="gepaeckKlein"> Gepäck klein (15,00 €)</label>
             <label><input type="checkbox" id="gepaeckGross"> Gepäck groß (30,00 €)</label>
+        </div>
+        <div class="checkbox-group">
+            <label><input type="checkbox" id="firmenrollstuhl"> Firmenrollstuhl (12,00 €)</label>
+            <label><input type="checkbox" id="treppenraupe"> Treppenraupe (30,00 €)</label>
         </div>
         <button onclick="calculatePrice()">Preis berechnen</button>
         <div id="results"></div>
@@ -108,6 +116,9 @@
         const grundgebuehr = 10.00; // Grundgebühr
         const anfahrtskosten = 2.00; // Anfahrtskosten pro Kilometer
         const kmPreis = 5.00; // Kilometerpreis für Liegendtransporte
+        const treppenPreis = 10.00; // Preis pro Treppe
+        const firmenrollstuhlPreis = 12.00;
+        const treppenraupePreis = 30.00;
         const gepaeckKleinPreis = 15.00;
         const gepaeckGrossPreis = 30.00;
 
@@ -119,6 +130,9 @@
         async function calculatePrice() {
             const start = document.getElementById('start').value;
             const ziel = document.getElementById('ziel').value;
+            const treppen = parseInt(document.getElementById('treppen').value) || 0;
+            const firmenrollstuhl = document.getElementById('firmenrollstuhl').checked;
+            const treppenraupe = document.getElementById('treppenraupe').checked;
             const gepaeckKlein = document.getElementById('gepaeckKlein').checked;
             const gepaeckGross = document.getElementById('gepaeckGross').checked;
 
@@ -161,6 +175,9 @@
 
                 // Preisberechnung
                 let total = grundgebuehr + anfahrtKm * anfahrtskosten + streckeKm * kmPreis;
+                total += treppen * treppenPreis;
+                if (firmenrollstuhl) total += firmenrollstuhlPreis;
+                if (treppenraupe) total += treppenraupePreis;
                 if (gepaeckKlein) total += gepaeckKleinPreis;
                 if (gepaeckGross) total += gepaeckGrossPreis;
 
@@ -171,6 +188,9 @@
                     <p><b>Anfahrtskosten:</b> ${anfahrtKm.toFixed(2)} km × 2,00 € = ${(anfahrtKm * anfahrtskosten).toFixed(2)} €</p>
                     <p><b>Grundgebühr:</b> 10,00 €</p>
                     <p><b>Transportkosten:</b> ${streckeKm.toFixed(2)} km × 5,00 € = ${(streckeKm * kmPreis).toFixed(2)} €</p>
+                    ${treppen > 0 ? `<p><b>Treppen:</b> ${treppen} × 10,00 € = ${(treppen * treppenPreis).toFixed(2)} €</p>` : ""}
+                    ${firmenrollstuhl ? `<p><b>Firmenrollstuhl:</b> 12,00 €</p>` : ""}
+                    ${treppenraupe ? `<p><b>Treppenraupe:</b> 30,00 €</p>` : ""}
                     ${gepaeckKlein ? `<p><b>Gepäck klein:</b> 15,00 €</p>` : ""}
                     ${gepaeckGross ? `<p><b>Gepäck groß:</b> 30,00 €</p>` : ""}
                     <p><b>Gesamtpreis:</b> ${total.toFixed(2)} €</p>
